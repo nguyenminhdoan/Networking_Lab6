@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Software Networking Class lab 6
+
+
+Globals:
+  Function:
+    CodeUri: src/
+    Runtime: python3.11
+    Timeout: 30
+    Architectures:
+      - x86_64
+    MemorySize: 128
+
+    LoggingConfig:
+      LogFormat: JSON
+
+Resources:
+  ImageUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: upload.lambda_handler
+      Events:
+        Upload:
+          Type: Api
+          Properties:
+            Path: /upload
+            Method: post
+
+  ImageFetchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: fetch.lambda_handler
+      Events:
+        Fetch:
+          Type: Api
+          Properties:
+            Path: /image
+            Method: get
+
+Outputs:
+  UploadAPI:
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/upload"
+  FetchAPI:
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/image"
