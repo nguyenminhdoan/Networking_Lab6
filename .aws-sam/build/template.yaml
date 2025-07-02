@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Software Networking Class lab 6
+
+  '
+Globals:
+  Function:
+    CodeUri: src/
+    Runtime: python3.11
+    Timeout: 30
+    Architectures:
+    - x86_64
+    MemorySize: 128
+    LoggingConfig:
+      LogFormat: JSON
+Resources:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: Lab6Api
+      StageName: Prod
+      Cors:
+        AllowMethods: '''GET,POST'''
+        AllowHeaders: '''Content-Type'''
+        AllowOrigin: '''*'''
+  ImageUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: upload.lambda_handler
+      Events:
+        Upload:
+          Type: Api
+          Properties:
+            Path: /upload
+            Method: post
+            RestApiId:
+              Ref: ApiGateway
+      Environment:
+        Variables:
+          IMAGE_BUCKET: aws-sam-cli-managed-default-samclisourcebucket-7cgg1brgpvvd
+      Policies:
+      - S3WritePolicy:
+          BucketName: aws-sam-cli-managed-default-samclisourcebucket-7cgg1brgpvvd
+      CodeUri: ImageUploadFunction
+    Metadata:
+      SamResourceId: ImageUploadFunction
+  ImageFetchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: fetch.lambda_handler
+      Events:
+        Fetch:
+          Type: Api
+          Properties:
+            Path: /image
+            Method: get
+            RestApiId:
+              Ref: ApiGateway
+      Environment:
+        Variables:
+          IMAGE_BUCKET: aws-sam-cli-managed-default-samclisourcebucket-7cgg1brgpvvd
+      Policies:
+      - Statement:
+          Effect: Allow
+          Action:
+          - s3:GetObject
+          - s3:ListBucket
+          Resource:
+          - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-7cgg1brgpvvd
+          - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-7cgg1brgpvvd/*
+      CodeUri: ImageFetchFunction
+    Metadata:
+      SamResourceId: ImageFetchFunction
+Outputs:
+  UploadAPI:
+    Value:
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/upload
+  FetchAPI:
+    Value:
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Prod/image
