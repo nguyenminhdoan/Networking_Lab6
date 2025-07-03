@@ -23,7 +23,10 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 400,
                 "body": json.dumps({"error": "Empty request body"}),
-                "headers": {"Content-Type": "application/json"}
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                }
             }
 
         try:
@@ -32,57 +35,68 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 400,
                 "body": json.dumps({"error": f"Invalid JSON: {str(e)}"}),
-                "headers": {"Content-Type": "application/json"}
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                }
             }
 
-        filename = data.get("filename")
-        base64_data = data.get("file")
-
-        if not filename or not base64_data:
+        if not isinstance(data, list):
             return {
                 "statusCode": 400,
-                "body": json.dumps({"error": "Missing 'filename' or 'file' in request"}),
-                "headers": {"Content-Type": "application/json"}
+                "body": json.dumps({"error": "Expected a list of files."}),
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                }
             }
 
-        # Strip data URI prefix if present
-        if base64_data.startswith("data:"):
-            base64_data = base64_data.split(",", 1)[1]
+        results = []
 
-        try:
-            file_bytes = base64.b64decode(base64_data)
-        except Exception as e:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": f"Invalid base64 encoding: {str(e)}"}),
-                "headers": {"Content-Type": "application/json"}
-            }
+        for item in data:
+            filename = item.get("filename")
+            base64_data = item.get("file")
 
-        # Validate image
-        try:
-            with Image.open(io.BytesIO(file_bytes)) as img:
-                img.verify()  # Confirm it's a valid image
-        except Exception as e:
-            logging.error(f"Invalid image: {filename} | {str(e)}")
-            return {
-                "statusCode": 400,
-                "body": json.dumps({
-                    "error": f"{filename} is not a valid image.",
-                    "first_bytes": str(file_bytes[:20])
-                }),
-                "headers": {"Content-Type": "application/json"}
-            }
+            if not filename or not base64_data:
+                results.append({
+                    "filename": filename,
+                    "error": "Missing 'filename' or 'file'"
+                })
+                continue
 
-        # Upload to S3
-        try:
-            s3.put_object(Bucket=BUCKET, Key=filename, Body=file_bytes)
-            logging.info(f"Uploaded {filename} to bucket {BUCKET}")
-        except Exception as e:
-            return {
-                "statusCode": 500,
-                "body": json.dumps({"error": f"Failed to upload to S3: {str(e)}"}),
-                "headers": {"Content-Type": "application/json"}
-            }
+            if base64_data.startswith("data:"):
+                base64_data = base64_data.split(",", 1)[1]
+
+            try:
+                file_bytes = base64.b64decode(base64_data)
+            except Exception as e:
+                results.append({
+                    "filename": filename,
+                    "error": f"Invalid base64 encoding: {str(e)}"
+                })
+                continue
+
+            try:
+                with Image.open(io.BytesIO(file_bytes)) as img:
+                    img.verify()
+            except Exception as e:
+                results.append({
+                    "filename": filename,
+                    "error": f"Invalid image: {str(e)}"
+                })
+                continue
+
+            try:
+                s3.put_object(Bucket=BUCKET, Key=filename, Body=file_bytes)
+                results.append({
+                    "filename": filename,
+                    "status": "success"
+                })
+            except Exception as e:
+                results.append({
+                    "filename": filename,
+                    "error": f"Failed to upload to S3: {str(e)}"
+                })
 
         return {
             "statusCode": 200,
@@ -90,7 +104,7 @@ def lambda_handler(event, context):
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*"
             },
-            "body": json.dumps({"message": "Upload successful", "filename": filename})
+            "body": json.dumps({"results": results})
         }
 
     except Exception as e:
@@ -98,5 +112,8 @@ def lambda_handler(event, context):
         return {
             "statusCode": 500,
             "body": json.dumps({"error": f"Unexpected error: {str(e)}"}),
-            "headers": {"Content-Type": "application/json"}
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
         }

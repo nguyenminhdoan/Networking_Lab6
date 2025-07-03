@@ -20,7 +20,7 @@ Resources:
       Name: Lab6Api
       StageName: Prod
       Cors:
-        AllowMethods: '''GET,POST'''
+        AllowMethods: '''GET,POST,OPTIONS'''
         AllowHeaders: '''Content-Type'''
         AllowOrigin: '''*'''
   ImageUploadFunction:

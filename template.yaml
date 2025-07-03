@@ -22,7 +22,7 @@ Resources:
       Name: Lab6Api
       StageName: Prod
       Cors:
-        AllowMethods: "'GET,POST'"
+        AllowMethods: "'GET,POST,OPTIONS'"
         AllowHeaders: "'Content-Type'"
         AllowOrigin: "'*'"
 
@@ -55,6 +55,7 @@ Resources:
             Path: /image
             Method: get
             RestApiId: !Ref ApiGateway
+
       Environment:
         Variables:
           IMAGE_BUCKET: aws-sam-cli-managed-default-samclisourcebucket-7cgg1brgpvvd
